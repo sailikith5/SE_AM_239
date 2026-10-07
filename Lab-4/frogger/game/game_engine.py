@@ -3,7 +3,7 @@ GameEngine: owns the frog and all vehicles, and runs one frame's worth
 of game logic.
 
 Features: collision detection (Task 1), 3 lives with respawn and Game Over
-(Task 2).
+(Task 2), goal detection with score and a win state (Task 3).
 """
 
 import random
@@ -19,8 +19,11 @@ from game.renderer import (
 from game import renderer
 
 START_LIVES = 3
+ROW_POINTS = 10      # points for each new row the frog reaches during an attempt
+GOAL_BONUS = 100     # bonus for reaching the goal zone
 
 STATE_PLAYING = "playing"
+STATE_WON = "won"
 STATE_GAME_OVER = "game_over"
 
 LANE_SPEEDS = [1.5, -2, 2, -2.5, 1.5, -2]   # one entry per road row, alternating direction
@@ -32,6 +35,8 @@ class GameEngine:
 
     def _build_entities(self):
         self.lives = START_LIVES
+        self.score = 0
+        self.best_row = START_ROW   # furthest row reached this attempt (for progress points)
         self.state = STATE_PLAYING
         start_col = GRID_COLS // 2
         self.frog = Frog(
@@ -84,13 +89,23 @@ class GameEngine:
         elif key == pygame.K_RIGHT:
             self.frog.move(1, 0)
 
+        # Progress points: only for rows not yet reached in this attempt,
+        # so hopping back and forth can't farm score.
+        if self.frog.row < self.best_row:
+            self.score += ROW_POINTS * (self.best_row - self.frog.row)
+            self.best_row = self.frog.row
+
+    def _respawn(self):
+        self.frog.reset()
+        self.best_row = START_ROW
+
     def _lose_life(self):
         """Take one life; respawn at the start, or end the game on the last one."""
         self.lives -= 1
         if self.lives <= 0:
             self.state = STATE_GAME_OVER
         else:
-            self.frog.reset()
+            self._respawn()
 
     def update(self):
         if self.state != STATE_PLAYING:
@@ -104,12 +119,16 @@ class GameEngine:
             return
 
         if self.frog.row == GOAL_ROW:
-            self.frog.reset()
+            self.score += GOAL_BONUS
+            self.state = STATE_WON
 
     def draw(self, surface, font):
         renderer.draw_scene(surface, self.frog, self.vehicles)
         renderer.draw_text(surface, font, "Arrow keys to move. R to restart.", (10, HEIGHT - 24))
+        renderer.draw_text(surface, font, f"Score: {self.score}", (10, 12))
         renderer.draw_text_right(surface, font, f"Lives: {self.lives}", WIDTH - 10, 12)
 
-        if self.state == STATE_GAME_OVER:
+        if self.state == STATE_WON:
+            renderer.draw_banner(surface, font, "YOU WIN!", f"Final score: {self.score} - Press R to restart")
+        elif self.state == STATE_GAME_OVER:
             renderer.draw_banner(surface, font, "GAME OVER", "Press R to restart", color=(255, 90, 80))
