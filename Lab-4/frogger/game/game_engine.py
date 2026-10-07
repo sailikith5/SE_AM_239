@@ -2,10 +2,8 @@
 GameEngine: owns the frog and all vehicles, and runs one frame's worth
 of game logic.
 
-Starter version: the frog can move, hop across the road, and reach the
-goal - but there's no lives system, no score, and no timer. Collision
-detection also has a known bug (see game/collisions.py) that Task 1
-asks you to fix.
+Features: collision detection (Task 1), 3 lives with respawn and Game Over
+(Task 2).
 """
 
 import random
@@ -18,6 +16,12 @@ from game.collisions import check_collision
 from game.renderer import (
     GRID_COLS, GRID_ROWS, GOAL_ROW, ROAD_ROWS, START_ROW, CELL_SIZE, WIDTH, HEIGHT,
 )
+from game import renderer
+
+START_LIVES = 3
+
+STATE_PLAYING = "playing"
+STATE_GAME_OVER = "game_over"
 
 LANE_SPEEDS = [1.5, -2, 2, -2.5, 1.5, -2]   # one entry per road row, alternating direction
 
@@ -27,6 +31,8 @@ class GameEngine:
         self._build_entities()
 
     def _build_entities(self):
+        self.lives = START_LIVES
+        self.state = STATE_PLAYING
         start_col = GRID_COLS // 2
         self.frog = Frog(
             col=start_col, row=START_ROW,
@@ -63,6 +69,12 @@ class GameEngine:
                                               height=CELL_SIZE - 8, speed=speed))
 
     def handle_keydown(self, key):
+        if key == pygame.K_r:
+            self._build_entities()
+            return
+        if self.state != STATE_PLAYING:
+            return   # frog is frozen once the game is over
+
         if key == pygame.K_UP:
             self.frog.move(0, -1)
         elif key == pygame.K_DOWN:
@@ -71,20 +83,33 @@ class GameEngine:
             self.frog.move(-1, 0)
         elif key == pygame.K_RIGHT:
             self.frog.move(1, 0)
-        elif key == pygame.K_r:
-            self._build_entities()
+
+    def _lose_life(self):
+        """Take one life; respawn at the start, or end the game on the last one."""
+        self.lives -= 1
+        if self.lives <= 0:
+            self.state = STATE_GAME_OVER
+        else:
+            self.frog.reset()
 
     def update(self):
+        if self.state != STATE_PLAYING:
+            return   # world is frozen on the Game Over screen
+
         for v in self.vehicles:
             v.update(road_width_px=WIDTH)
 
         if check_collision(self.frog, self.vehicles):
-            self.frog.reset()
+            self._lose_life()
+            return
 
         if self.frog.row == GOAL_ROW:
             self.frog.reset()
 
     def draw(self, surface, font):
-        from game import renderer
         renderer.draw_scene(surface, self.frog, self.vehicles)
         renderer.draw_text(surface, font, "Arrow keys to move. R to restart.", (10, HEIGHT - 24))
+        renderer.draw_text_right(surface, font, f"Lives: {self.lives}", WIDTH - 10, 12)
+
+        if self.state == STATE_GAME_OVER:
+            renderer.draw_banner(surface, font, "GAME OVER", "Press R to restart", color=(255, 90, 80))
