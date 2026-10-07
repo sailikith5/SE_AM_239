@@ -3,9 +3,11 @@ GameEngine: owns the frog and all vehicles, and runs one frame's worth
 of game logic.
 
 Features: collision detection (Task 1), 3 lives with respawn and Game Over
-(Task 2), goal detection with score and a win state (Task 3).
+(Task 2), goal detection with score and a win state (Task 3), 30-second
+timer per attempt (Task 4).
 """
 
+import math
 import random
 
 import pygame
@@ -21,6 +23,8 @@ from game import renderer
 START_LIVES = 3
 ROW_POINTS = 10      # points for each new row the frog reaches during an attempt
 GOAL_BONUS = 100     # bonus for reaching the goal zone
+TIME_LIMIT = 30.0    # seconds allowed for each attempt (each life)
+NOTICE_SECONDS = 1.5 # how long the "hit" / "time's up" message stays on screen
 
 STATE_PLAYING = "playing"
 STATE_WON = "won"
@@ -37,6 +41,9 @@ class GameEngine:
         self.lives = START_LIVES
         self.score = 0
         self.best_row = START_ROW   # furthest row reached this attempt (for progress points)
+        self.time_left = TIME_LIMIT
+        self.notice = ""
+        self.notice_timer = 0.0
         self.state = STATE_PLAYING
         start_col = GRID_COLS // 2
         self.frog = Frog(
@@ -98,24 +105,37 @@ class GameEngine:
     def _respawn(self):
         self.frog.reset()
         self.best_row = START_ROW
+        self.time_left = TIME_LIMIT   # every attempt gets a fresh 30 seconds
 
-    def _lose_life(self):
+    def _lose_life(self, reason="Hit!"):
         """Take one life; respawn at the start, or end the game on the last one."""
         self.lives -= 1
         if self.lives <= 0:
             self.state = STATE_GAME_OVER
         else:
             self._respawn()
+            self.notice = reason
+            self.notice_timer = NOTICE_SECONDS
 
-    def update(self):
+    def update(self, dt=1 / 60):
+        """Advance one frame. dt is the real elapsed time in seconds."""
         if self.state != STATE_PLAYING:
-            return   # world is frozen on the Game Over screen
+            return   # world is frozen on the win / Game Over screens
+
+        if self.notice_timer > 0:
+            self.notice_timer = max(0.0, self.notice_timer - dt)
 
         for v in self.vehicles:
             v.update(road_width_px=WIDTH)
 
         if check_collision(self.frog, self.vehicles):
-            self._lose_life()
+            self._lose_life("Hit!")
+            return
+
+        self.time_left -= dt
+        if self.time_left <= 0:
+            self.time_left = 0.0
+            self._lose_life("Time's up!")
             return
 
         if self.frog.row == GOAL_ROW:
@@ -126,7 +146,15 @@ class GameEngine:
         renderer.draw_scene(surface, self.frog, self.vehicles)
         renderer.draw_text(surface, font, "Arrow keys to move. R to restart.", (10, HEIGHT - 24))
         renderer.draw_text(surface, font, f"Score: {self.score}", (10, 12))
+        # Show whole seconds remaining; turn red for the last 5 seconds.
+        secs = math.ceil(self.time_left)
+        timer_color = (255, 90, 80) if secs <= 5 else renderer.COLOR_TEXT
+        renderer.draw_text_centered(surface, font, f"Time: {secs}", WIDTH // 2, 12, timer_color)
         renderer.draw_text_right(surface, font, f"Lives: {self.lives}", WIDTH - 10, 12)
+
+        if self.notice_timer > 0 and self.state == STATE_PLAYING:
+            renderer.draw_text_centered(surface, font, f"{self.notice} -1 life", WIDTH // 2,
+                                        HEIGHT - 60, (255, 220, 80))
 
         if self.state == STATE_WON:
             renderer.draw_banner(surface, font, "YOU WIN!", f"Final score: {self.score} - Press R to restart")

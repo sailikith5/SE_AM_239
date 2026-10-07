@@ -20,6 +20,7 @@ def main():
     font = pygame.font.SysFont("consolas", 20)
 
     engine = GameEngine()
+    dt = 1 / 60
     running = True
     while running:
         for event in pygame.event.get():
@@ -28,11 +29,13 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 engine.handle_keydown(event.key)
 
-        engine.update()
+        engine.update(dt)
         engine.draw(screen, font)
 
         pygame.display.flip()
-        clock.tick(60)
+        # Real elapsed seconds since last frame (capped so dragging the window
+        # or a stall can't burn the whole timer in one step).
+        dt = min(clock.tick(60) / 1000.0, 0.1)
 
     pygame.quit()
 
