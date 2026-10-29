@@ -1,0 +1,10 @@
+$ coverage run -m pytest CodeCoverageTest_water_utility_billing.py
+.............                                                            [100%]
+13 passed in 0.06s
+$ coverage report -m
+Name                                        Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------
+CodeCoverageTest_water_utility_billing.py      41      0   100%
+water_utility_billing.py                       46      0   100%
+-------------------------------------------------------------------------
+TOTAL                                          87      0   100%
