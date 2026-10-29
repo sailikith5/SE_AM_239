@@ -1,0 +1,10 @@
+$ coverage run --branch -m pytest BranchCoverageTest_water_utility_billing.py
+........................................                                 [100%]
+40 passed in 0.11s
+$ coverage report -m
+Name                                          Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------------------------
+BranchCoverageTest_water_utility_billing.py     115      0      0      0   100%
+water_utility_billing.py                         46      0     34      0   100%
+-----------------------------------------------------------------------------------------
+TOTAL                                           161      0     34      0   100%
